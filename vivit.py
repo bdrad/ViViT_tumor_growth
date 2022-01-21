@@ -28,19 +28,44 @@ class Transformer(nn.Module):
 class ViViT(nn.Module):
     def __init__(self, image_size, patch_size, num_classes, num_frames, dim = 192, depth = 4, heads = 3, pool = 'cls', in_channels = 3, dim_head = 64, dropout = 0.,
                  emb_dropout = 0., scale_dim = 4, ):
+        
+        # input dimensions: num frame x __(channels???)__ x height x width 
+        # image size: height = width of image 
+        # patch size: size of the little patches where images will be divided into 
+        # num classes
+        # num frames 
+        # dim: dimension of the input zl (rasterized image patch) 
+        # depth: number of attention layers
+        # heads: number of heads in an attention layer 
+        # pool: pool type must be either cls (cls token) or mean (mean pooling)
+        # in_channels
+        # dim_head: dimensions of the heads
+        # dropout
+        # emb_dropout
+        # scale_dim 
+        
+        
         super().__init__()
         
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
 
         assert image_size % patch_size == 0, 'Image dimensions must be divisible by the patch size.'
-        num_patches = (image_size // patch_size) ** 2
-        patch_dim = in_channels * patch_size ** 2
+        
+        # changed from the original code to accommodate 3D data 
+#         num_patches = (image_size // patch_size) ** 2
+#         patch_dim = in_channels * patch_size ** 2
+#         self.to_patch_embedding = nn.Sequential(
+#             Rearrange('b t c (h p1) (w p2) -> b t (h w) (p1 p2 c)', p1 = patch_size, p2 = patch_size),
+#             nn.Linear(patch_dim, dim),
+#         )
+        num_patches = (image_size // patch_size) ** 3
+        patch_dim = in_channels * patch_size ** 3
         self.to_patch_embedding = nn.Sequential(
-            Rearrange('b t c (h p1) (w p2) -> b t (h w) (p1 p2 c)', p1 = patch_size, p2 = patch_size),
+            Rearrange('b t c (h p1) (w p2) (d p3) -> b t (h w d) (p1 p2 p3 c)', p1 = patch_size, p2 = patch_size, p3 = patch_size),
             nn.Linear(patch_dim, dim),
         )
-
+        
         self.pos_embedding = nn.Parameter(torch.randn(1, num_frames, num_patches + 1, dim))
         self.space_token = nn.Parameter(torch.randn(1, 1, dim))
         self.space_transformer = Transformer(dim, depth, heads, dim_head, dim*scale_dim, dropout)
